@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 
 function calculateMatchPoints(
@@ -60,6 +61,72 @@ export async function createMatch(formData: FormData) {
   }
 
   redirect('/admin')
+}
+
+export async function deleteMatch(formData: FormData) {
+  const supabase = await createClient()
+  const serviceSupabase = createServiceClient()
+  const matchId = Number(formData.get('matchId'))
+  
+  console.log('Attempting to delete match:', matchId)
+  
+  try {
+    // First, check if match exists
+    const { data: matchExists, error: checkError } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('id', matchId)
+      .single()
+    
+    console.log('Match exists check:', matchExists, 'Error:', checkError)
+    
+    if (checkError || !matchExists) {
+      console.error('Match not found or error:', checkError)
+      throw new Error('Match not found')
+    }
+    
+    // Check predictions for this match
+    const { data: predictions, error: predCheckError } = await supabase
+      .from('predictions')
+      .select('*')
+      .eq('match_id', matchId)
+    
+    console.log('Predictions found:', predictions, 'Error:', predCheckError)
+    
+    // Eliminar predicciones asociadas usando service client
+    const { error: predError, data: predData } = await serviceSupabase
+      .from('predictions')
+      .delete()
+      .eq('match_id', matchId)
+      .select()
+    
+    console.log('Predictions deleted:', predData, 'Error:', predError)
+    
+    if (predError) {
+      console.error('Error deleting predictions:', predError)
+      throw new Error(predError.message)
+    }
+    
+    // Eliminar el partido usando service client
+    const { error: matchError, data: matchData } = await serviceSupabase
+      .from('matches')
+      .delete()
+      .eq('id', matchId)
+      .select()
+    
+    console.log('Match deleted:', matchData, 'Error:', matchError)
+    
+    if (matchError) {
+      console.error('Error deleting match:', matchError)
+      throw new Error(matchError.message)
+    }
+    
+    console.log('Successfully deleted match:', matchId)
+    redirect('/admin')
+  } catch (error) {
+    console.error('Complete error in deleteMatch:', error)
+    throw error
+  }
 }
 
 export async function updateMatchResult(formData: FormData) {
@@ -129,11 +196,12 @@ export async function updateMatchResult(formData: FormData) {
     }
 
     // Actualizar puntos totales de todos los perfiles
-    const { error: profileError } = await supabase.rpc('update_all_profile_points')
-    
-    if (profileError) {
-      console.error('Error actualizando puntos totales:', profileError)
-    }
+    // TODO: Fix update_all_profile_points function
+    // const { error: profileError } = await supabase.rpc('update_all_profile_points')
+    // 
+    // if (profileError) {
+    //   console.error('Error actualizando puntos totales:', profileError)
+    // }
 
     // Redirigir para refrescar los datos
     redirect('/admin')

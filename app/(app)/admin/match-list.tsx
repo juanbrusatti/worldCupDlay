@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Trophy, Calculator, CheckCircle } from 'lucide-react'
-import { updateMatchResult } from './actions'
+import { Trophy, Calculator, CheckCircle, Trash2 } from 'lucide-react'
+import { updateMatchResult, deleteMatch } from './actions'
 
 interface Team {
   id: number
@@ -113,6 +113,24 @@ export function MatchList({ matches }: MatchListProps) {
                     Cargar Resultado y Calcular Puntos
                   </Button>
                 )}
+              </form>
+              
+              {/* Formulario para eliminar partido */}
+              <form action={deleteMatch} className="mt-2">
+                <input type="hidden" name="matchId" value={match.id} />
+                <Button 
+                  type="submit" 
+                  variant="destructive" 
+                  className="w-full"
+                  onClick={(e) => {
+                    if (!confirm('¿Estás seguro de que quieres eliminar este partido? Se eliminarán todas las predicciones asociadas.')) {
+                      e.preventDefault()
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar Partido
+                </Button>
               </form>
             </CardContent>
           </Card>
