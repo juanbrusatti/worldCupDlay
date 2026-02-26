@@ -121,6 +121,29 @@ export async function deleteMatch(formData: FormData) {
       throw new Error(matchError.message)
     }
     
+    // Recalcular puntos totales para todos los usuarios
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id')
+    
+    if (profiles && profiles.length > 0) {
+      for (const profile of profiles) {
+        // Sumar todos los puntos de las predicciones del usuario
+        const { data: userPredictions } = await supabase
+          .from('predictions')
+          .select('points_earned')
+          .eq('user_id', profile.id)
+        
+        const totalPoints = userPredictions?.reduce((sum, pred) => sum + (pred.points_earned || 0), 0) || 0
+        
+        // Actualizar el total del perfil usando service client
+        await serviceSupabase
+          .from('profiles')
+          .update({ total_points: totalPoints })
+          .eq('id', profile.id)
+      }
+    }
+    
     console.log('Successfully deleted match:', matchId)
     redirect('/admin')
   } catch (error) {
@@ -130,11 +153,13 @@ export async function deleteMatch(formData: FormData) {
 }
 
 export async function updateMatchResult(formData: FormData) {
+  const supabase = await createClient()
+  const serviceSupabase = createServiceClient()
   const matchId = Number(formData.get('matchId'))
   const scoreHome = Number(formData.get('scoreHome'))
   const scoreAway = Number(formData.get('scoreAway'))
 
-  const supabase = await createClient()
+  console.log('Updating match result:', { matchId, scoreHome, scoreAway })
   
   try {
     // Actualizar resultado del partido
@@ -164,6 +189,8 @@ export async function updateMatchResult(formData: FormData) {
       throw new Error(predError.message)
     }
 
+    console.log('Found predictions:', predictions)
+
     // Calcular puntos para cada predicción
     const updates = predictions?.map(pred => {
       const points = calculateMatchPoints(
@@ -174,16 +201,20 @@ export async function updateMatchResult(formData: FormData) {
         pred.wildcard as 'double' | 'insurance' | null
       )
 
+      console.log(`Prediction ${pred.id}: predicted ${pred.predicted_home}-${pred.predicted_away}, actual ${scoreHome}-${scoreAway}, points: ${points}`)
+
       return {
         id: pred.id,
         points_earned: points
       }
     }) || []
 
-    // Actualizar puntos de todas las predicciones usando función simple
+    console.log('Updates to apply:', updates)
+
+    // Actualizar puntos de todas las predicciones usando service client
     if (updates.length > 0) {
       for (const update of updates) {
-        const { error: updateError } = await supabase.rpc('simple_update_points', {
+        const { error: updateError } = await serviceSupabase.rpc('simple_update_points', {
           p_prediction_id: update.id,
           p_points: update.points_earned
         })
@@ -191,17 +222,11 @@ export async function updateMatchResult(formData: FormData) {
         if (updateError) {
           console.error('Error updating prediction', update.id, ':', updateError)
           throw new Error(updateError.message)
+        } else {
+          console.log(`Successfully updated prediction ${update.id} with ${update.points_earned} points`)
         }
       }
     }
-
-    // Actualizar puntos totales de todos los perfiles
-    // TODO: Fix update_all_profile_points function
-    // const { error: profileError } = await supabase.rpc('update_all_profile_points')
-    // 
-    // if (profileError) {
-    //   console.error('Error actualizando puntos totales:', profileError)
-    // }
 
     // Redirigir para refrescar los datos
     redirect('/admin')
