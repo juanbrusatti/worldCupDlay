@@ -7,6 +7,24 @@ import { cn } from '@/lib/utils'
 import { PredictionInput } from '@/components/prediction-input'
 import type { Match, Team, Prediction } from '@/lib/types'
 
+// === QUICK TWEAKS: Adjust these values to change the gradient look ===
+const GRADIENT_CONFIG = {
+  // Gradient intensity (0.0 = invisible, 1.0 = full color)
+  gradientAlpha: 0.33,          // try 0.6 for softer, 0.99 for stronger
+  gradientAlphaEdge: 0.33,      // try 0.2 for softer, 0.5 for stronger
+  // Overlay (background) opacity (0.0 = no cover, 1.0 = fully covers gradient)
+  overlayOpacity: 0.35,       // try 0.2 for more color, 0.5 for more readability
+  // Blur amount (px) - adds a modern glass effect
+  blurPx: 0,                   // try 0 for no blur, 4 for more blur
+  // Gradient stop positions (%)
+  stopStart: 0,               // don't change
+  stopMidEdge: 48,            // try 25 for more color, 35 for less
+  stopMid: 50,                // don't change
+  stopMidEdge2: 70,           // try 65 for more color, 75 for less
+  stopEnd: 100,               // don't change
+}
+// ==================================================================
+
 function getTeamColors(team?: Team): { left: string; right: string } {
   const code = (team?.code || '').toUpperCase()
   const name = (team?.name || '').toLowerCase()
